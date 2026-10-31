@@ -164,7 +164,7 @@ footer { padding: 28px 0 48px; color: var(--muted); font-size: 13px; }
     <div class="head">
       <div>
         <h1>Seed speedrun</h1>
-        <p class="sub">Danh sách seed Minecraft đã lọc cho từng phiên bản: có làng, ruined portal, fortress hoặc bastion gần điểm xuất phát và stronghold gần. Tọa độ chỉ đúng với đúng phiên bản đã chọn.</p>
+        <p class="sub">Danh sách seed Minecraft đã lọc cho từng phiên bản: có làng, ruined portal, fortress hoặc bastion gần điểm xuất phát thật (spawn) và stronghold gần spawn, kể cả seed "ocean spawn" bị đẩy xa tâm map. Tọa độ chỉ đúng với đúng phiên bản đã chọn.</p>
       </div>
       <div class="live loading" id="live" role="status"><span class="dot"></span><span id="liveText">Đang tải</span></div>
     </div>
@@ -181,7 +181,10 @@ footer { padding: 28px 0 48px; color: var(--muted); font-size: 13px; }
     </select>
     <select id="maxsh" aria-label="Khoảng cách stronghold tối đa">
       <option value="0">Mọi khoảng cách stronghold</option>
-      <option value="1500">Stronghold trong 1500 block</option>
+      <option value="100">Stronghold trong 100 block (từ spawn)</option>
+        <option value="300">Stronghold trong 300 block (từ spawn)</option>
+        <option value="600">Stronghold trong 600 block (từ spawn)</option>
+        <option value="1500">Stronghold trong 1500 block</option>
       <option value="1300">Stronghold trong 1300 block</option>
       <option value="1100">Stronghold trong 1100 block</option>
     </select>
@@ -195,7 +198,7 @@ footer { padding: 28px 0 48px; color: var(--muted); font-size: 13px; }
       <span style="--c:var(--portal)">Ruined portal</span>
       <span class="tri" style="--c:var(--sh)">Hướng stronghold</span>
     </div>
-    Vòng tròn trong hình là bán kính 250 block quanh điểm xuất phát (chấm đen), phía trên là hướng bắc. Bấm vào một tọa độ để copy dạng "x ~ z", dán thẳng vào lệnh /tp. Điểm = 3 mỗi làng + 2 mỗi ruined portal + 3 nếu có fortress + 3 nếu có bastion + thưởng khi stronghold gần. Fortress và bastion là tọa độ Nether.
+    Vòng tròn trong hình là bán kính 300 block quanh điểm xuất phát thật (chấm đen), phía trên là hướng bắc. Bấm vào một tọa độ để copy dạng "x ~ z", dán thẳng vào lệnh /tp. Mọi khoảng cách (làng, portal, stronghold) đo từ spawn, không phải từ (0,0); spawn tính bằng cubiomes nên có thể lệch vài block, hãy kiểm tra lại bằng F3 trong game. Điểm = 3 mỗi làng + 2 mỗi ruined portal + 3 nếu có fortress + 3 nếu có bastion + thưởng khi stronghold gần. Fortress và bastion là tọa độ Nether.
   </footer>
 </div>
 
@@ -312,9 +315,10 @@ function renderNav() {
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function sv(tag, attrs) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
 
-// Hình radar: điểm xuất phát ở giữa, vòng tròn = 250 block, tam giác = hướng stronghold
+// Hình radar: điểm xuất phát (spawn) ở giữa, vòng tròn = 300 block, tam giác = hướng stronghold
 function radar(e) {
-  const S = 116, C = S / 2, R = C - 9, K = R / 260;
+  const S = 116, C = S / 2, R = C - 9, K = R / 300;
+  const sp = e.sp || [0, 0]; // dữ liệu cũ chưa có spawn thì coi như ở (0,0)
   const svg = sv('svg', { viewBox: `0 0 ${S} ${S}`, class: 'radar', role: 'img', 'aria-label': 'Vị trí các công trình quanh điểm xuất phát' });
   svg.append(sv('circle', { class: 'bg', cx: C, cy: C, r: R }));
   svg.append(sv('circle', { class: 'ring', cx: C, cy: C, r: R }));
@@ -324,7 +328,7 @@ function radar(e) {
   const n = sv('text', { class: 'n', x: C, y: 8, 'text-anchor': 'middle' }); n.textContent = 'B'; svg.append(n);
   const put = (pt, cls, r) => {
     if (!pt) return;
-    let x = pt[0] * K, y = pt[1] * K; const d = Math.hypot(x, y);
+    let x = (pt[0] - sp[0]) * K, y = (pt[1] - sp[1]) * K; const d = Math.hypot(x, y);
     if (d > R - 2) { x *= (R - 2) / d; y *= (R - 2) / d; }
     svg.append(sv('circle', { class: cls, cx: C + x, cy: C + y, r }));
   };
@@ -332,7 +336,7 @@ function radar(e) {
   (e.viable ? [e.vil] : []).forEach((p) => put(p, 'v', 4));
   svg.append(sv('circle', { class: 'spawn', cx: C, cy: C, r: 2.5 }));
   if (e.shp) {
-    const a = Math.atan2(e.shp[1], e.shp[0]);
+    const a = Math.atan2(e.shp[1] - sp[1], e.shp[0] - sp[0]);
     const x = C + Math.cos(a) * (R + 1), y = C + Math.sin(a) * (R + 1);
     svg.append(sv('polygon', { class: 's', points: '0,-6 5,5 -5,5', transform: `translate(${x} ${y}) rotate(${a * 180 / Math.PI + 90})` }));
   }
@@ -408,11 +412,12 @@ function renderList() {
 
     const chips = el('div', 'chips');
     [
+      e.sp ? chip('var(--ink)', Math.hypot(e.sp[0], e.sp[1]) > 600 ? 'Spawn (ocean spawn!)' : 'Spawn', e.sp) : null,
       chip('var(--village)', e.viable > 1 ? `Làng (+${e.viable - 1} làng nữa)` : 'Làng', e.vil),
       chip('var(--portal)', 'Ruined portal', e.rp),
       chip('var(--fort)', 'Fortress (Nether)', e.fort),
       chip('var(--bast)', 'Bastion (Nether)', e.bast),
-      chip('var(--sh)', `Stronghold (~${e.sh} block)`, e.shp),
+      chip('var(--sh)', `Stronghold (cách spawn ~${e.sh} block)`, e.shp),
     ].filter(Boolean).forEach((n) => chips.append(n));
 
     main.append(top, chips);
