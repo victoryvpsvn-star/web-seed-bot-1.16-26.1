@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Seed speedrun Minecraft</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #e8ebe1;
+  --panel: #fafbf6;
+  --panel-2: #f0f2ea;
+  --ink: #16221a;
+  --muted: #5b6a60;
+  --line: #cbd2c3;
+  --accent: #2c6a39;
+  --accent-ink: #ffffff;
+  --village: #2c6a39;
+  --portal: #7440b8;
+  --fort: #b3411b;
+  --bast: #96700f;
+  --sh: #1b6c88;
+  --glow: rgba(44, 106, 57, .18);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1214;
+    --panel: #172023;
+    --panel-2: #1d282b;
+    --ink: #e5ece4;
+    --muted: #8fa196;
+    --line: #2a3a3d;
+    --accent: #7ccb85;
+    --accent-ink: #0c1a10;
+    --village: #7ccb85;
+    --portal: #b99af0;
+    --fort: #f28a5e;
+    --bast: #e0b24a;
+    --sh: #6fc8e3;
+    --glow: rgba(124, 203, 133, .22);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 15px/1.5 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+
+header { padding: 36px 0 18px; }
+.head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
+h1 {
+  font: 800 clamp(34px, 6.5vw, 60px)/1 "Bricolage Grotesque", Inter, system-ui, sans-serif;
+  letter-spacing: -0.02em; margin: 0;
+}
+.sub { margin: 10px 0 0; color: var(--muted); max-width: 56ch; }
+.live {
+  display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+  font-size: 13px; color: var(--muted); white-space: nowrap;
+}
+.live b { color: var(--ink); font-weight: 600; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex: none; }
+.live.loading .dot { background: var(--bast); }
+.live.err .dot { background: var(--fort); }
+@media (prefers-reduced-motion: no-preference) {
+  .live:not(.err) .dot { animation: beat 2s ease-in-out infinite; }
+  @keyframes beat { 0%, 100% { box-shadow: 0 0 0 0 var(--glow); } 50% { box-shadow: 0 0 0 6px transparent; } }
+}
+
+.versions { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 14px; }
+.versions button {
+  font: 600 14px Inter, system-ui, sans-serif; cursor: pointer; color: var(--ink);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px;
+  display: inline-flex; gap: 8px; align-items: baseline;
+}
+.versions button i { font-style: normal; font-weight: 400; color: var(--muted); font-size: 12px; }
+.versions button:hover { border-color: var(--accent); }
+.versions button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.versions button[aria-pressed="true"] i { color: inherit; opacity: .75; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.tools { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.tools input, .tools select {
+  font: inherit; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px;
+}
+.tools input { flex: 1 1 220px; min-width: 0; }
+
+#list { display: grid; gap: 12px; }
+.card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 14px; display: grid; grid-template-columns: 116px 1fr; gap: 18px; align-items: center;
+}
+.card.new { border-color: var(--accent); box-shadow: 0 0 0 3px var(--glow); }
+.radar { width: 116px; height: 116px; display: block; }
+.radar .bg { fill: var(--panel-2); }
+.radar .ring { fill: none; stroke: var(--line); stroke-width: 1; }
+.radar .axis { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 3; }
+.radar .n { fill: var(--muted); font: 600 8px Inter, sans-serif; }
+.radar .spawn { fill: var(--ink); }
+.radar .v { fill: var(--village); }
+.radar .p { fill: var(--portal); }
+.radar .s { fill: var(--sh); }
+
+.main { min-width: 0; display: grid; gap: 12px; }
+.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.seed {
+  font: 700 clamp(17px, 3.6vw, 24px)/1.15 "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  word-break: break-all; flex: 1 1 200px; min-width: 0;
+}
+.tag {
+  font: 600 12px Inter, sans-serif; background: var(--accent); color: var(--accent-ink);
+  border-radius: 6px; padding: 2px 8px;
+}
+.score { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.score b { color: var(--ink); font-weight: 600; }
+button.copy {
+  font: 600 14px Inter, system-ui, sans-serif; cursor: pointer;
+  background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px;
+  padding: 9px 16px; min-width: 104px;
+}
+button.copy[data-done="1"] { background: var(--ink); color: var(--bg); }
+@media (prefers-reduced-motion: no-preference) { button.copy { transition: background .15s, color .15s; } }
+
+.chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; }
+.chip {
+  all: unset; box-sizing: border-box; cursor: pointer; display: block;
+  border-left: 3px solid var(--c); background: var(--panel-2); border-radius: 0 8px 8px 0;
+  padding: 6px 10px;
+}
+.chip:hover { background: var(--line); }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chip small { display: block; color: var(--muted); font-size: 12px; }
+.chip span { font: 500 14px "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; }
+
+.more {
+  font: 600 14px Inter, system-ui, sans-serif; cursor: pointer; color: var(--ink);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; width: 100%;
+}
+.empty { padding: 48px 0; color: var(--muted); text-align: center; }
+footer { padding: 28px 0 48px; color: var(--muted); font-size: 13px; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--c); margin-right: 6px; }
+.legend span.tri::before { border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+
+@media (max-width: 640px) {
+  .card { grid-template-columns: 84px 1fr; gap: 12px; align-items: start; }
+  .radar { width: 84px; height: 84px; }
+  .head { align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="head">
+      <div>
+        <h1>Seed speedrun</h1>
+        <p class="sub">Danh sách seed Minecraft đã lọc cho từng phiên bản: có làng, ruined portal, fortress hoặc bastion gần điểm xuất phát và stronghold gần. Tọa độ chỉ đúng với đúng phiên bản đã chọn.</p>
+      </div>
+      <div class="live loading" id="live" role="status"><span class="dot"></span><span id="liveText">Đang tải</span></div>
+    </div>
+  </header>
+
+  <nav class="versions" id="versions" aria-label="Phiên bản"></nav>
+
+  <div class="tools">
+    <input id="q" type="search" placeholder="Tìm theo số seed" inputmode="numeric" aria-label="Tìm theo số seed">
+    <select id="sort" aria-label="Sắp xếp">
+      <option value="score">Điểm cao nhất</option>
+      <option value="sh">Stronghold gần nhất</option>
+      <option value="new">Mới tìm thấy</option>
+    </select>
+    <select id="maxsh" aria-label="Khoảng cách stronghold tối đa">
+      <option value="0">Mọi khoảng cách stronghold</option>
+      <option value="1500">Stronghold trong 1500 block</option>
+      <option value="1300">Stronghold trong 1300 block</option>
+      <option value="1100">Stronghold trong 1100 block</option>
+    </select>
+  </div>
+
+  <main id="list"></main>
+
+  <footer>
+    <div class="legend">
+      <span style="--c:var(--village)">Làng</span>
+      <span style="--c:var(--portal)">Ruined portal</span>
+      <span class="tri" style="--c:var(--sh)">Hướng stronghold</span>
+    </div>
+    Vòng tròn trong hình là bán kính 250 block quanh điểm xuất phát (chấm đen), phía trên là hướng bắc. Bấm vào một tọa độ để copy dạng "x ~ z", dán thẳng vào lệnh /tp. Điểm = 3 mỗi làng + 2 mỗi ruined portal + 3 nếu có fortress + 3 nếu có bastion + thưởng khi stronghold gần. Fortress và bastion là tọa độ Nether.
+  </footer>
+</div>
+
+<script>
+// Tự nhận repo từ địa chỉ trang (tenban.github.io/tenrepo). Nếu dùng tên miền riêng, điền tay vào đây.
+const OVERRIDE = { owner: '', repo: '', branch: 'data' };
+const REFRESH = 60;     // giây giữa các lần tự tải lại
+const PAGE = 60;        // số seed hiện mỗi lần
+
+const $ = (id) => document.getElementById(id);
+const NS = 'http://www.w3.org/2000/svg';
+const state = { data: null, version: null, limit: PAGE, seen: new Set(), fresh: new Set(), updated: 0, lastLoad: 0, left: REFRESH, err: false, loading: false };
+
+function dataUrl() {
+  let { owner, repo } = OVERRIDE;
+  if (!owner) {
+    const h = location.hostname;
+    if (h.endsWith('.github.io')) { owner = h.split('.')[0]; repo = location.pathname.split('/')[1] || h; }
+  }
+  if (!owner || !repo) return null;
+  return `https://raw.githubusercontent.com/${owner}/${repo}/${OVERRIDE.branch}/seeds.json`;
+}
+
+function cmpVer(a, b) {
+  const x = a.split('.').map((n) => parseInt(n, 10) || 0), y = b.split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; }
+  return 0;
+}
+function ago(ms) {
+  const m = Math.round((Date.now() - ms) / 60000);
+  if (m < 1) return 'vừa xong';
+  if (m < 60) return `${m} phút trước`;
+  const h = Math.round(m / 60);
+  return h < 48 ? `${h} giờ trước` : `${Math.round(h / 24)} ngày trước`;
+}
+
+function renderLive() {
+  const box = $('live'), t = $('liveText');
+  box.className = 'live' + (state.loading ? ' loading' : '') + (state.err ? ' err' : '');
+  if (state.loading) { t.textContent = 'Đang cập nhật'; return; }
+  if (state.err) { t.textContent = `Không tải được, thử lại sau ${state.left}s`; return; }
+  const total = state.data ? Object.values(state.data.versions || {}).reduce((a, l) => a + l.length, 0) : 0;
+  t.innerHTML = '';
+  const b = document.createElement('b');
+  b.textContent = `${total} seed`;
+  t.append(b, ` · dữ liệu ${state.updated ? ago(state.updated) : 'chưa rõ'} · tự cập nhật sau ${state.left}s`);
+}
+
+async function load() {
+  if (state.loading) return;
+  const url = dataUrl();
+  if (!url) { $('liveText').textContent = 'Chưa biết repo: điền OVERRIDE trong index.html'; return; }
+  state.loading = true; renderLive();
+  try {
+    const r = await fetch(url + '?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    const changed = !state.data || data.updated !== state.updated;
+    // đánh dấu seed mới so với lần tải trước (lần đầu thì không đánh dấu)
+    if (state.data) {
+      state.fresh = new Set();
+      for (const [v, list] of Object.entries(data.versions || {})) for (const e of list) if (!state.seen.has(v + e.seed)) state.fresh.add(v + e.seed);
+    }
+    for (const [v, list] of Object.entries(data.versions || {})) for (const e of list) state.seen.add(v + e.seed);
+    state.data = data; state.updated = data.updated || 0; state.err = false;
+    const labels = Object.keys(data.versions || {}).sort(cmpVer);
+    if (!state.version || !data.versions[state.version]) state.version = labels[labels.length - 1] || null;
+    if (changed) { renderNav(); renderList(); }
+  } catch (e) {
+    state.err = true;
+  } finally {
+    state.loading = false; state.lastLoad = Date.now(); state.left = REFRESH; renderLive();
+  }
+}
+
+function renderNav() {
+  const nav = $('versions');
+  nav.textContent = '';
+  for (const l of Object.keys(state.data.versions || {}).sort(cmpVer)) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(l === state.version));
+    b.append(l);
+    const n = document.createElement('i');
+    n.textContent = state.data.versions[l].length;
+    b.append(n);
+    b.onclick = () => { state.version = l; state.limit = PAGE; renderNav(); renderList(); };
+    nav.append(b);
+  }
+}
+
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function sv(tag, attrs) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+
+// Hình radar: điểm xuất phát ở giữa, vòng tròn = 250 block, tam giác = hướng stronghold
+function radar(e) {
+  const S = 116, C = S / 2, R = C - 9, K = R / 260;
+  const svg = sv('svg', { viewBox: `0 0 ${S} ${S}`, class: 'radar', role: 'img', 'aria-label': 'Vị trí các công trình quanh điểm xuất phát' });
+  svg.append(sv('circle', { class: 'bg', cx: C, cy: C, r: R }));
+  svg.append(sv('circle', { class: 'ring', cx: C, cy: C, r: R }));
+  svg.append(sv('circle', { class: 'ring', cx: C, cy: C, r: R / 2 }));
+  svg.append(sv('line', { class: 'axis', x1: C, y1: C - R, x2: C, y2: C + R }));
+  svg.append(sv('line', { class: 'axis', x1: C - R, y1: C, x2: C + R, y2: C }));
+  const n = sv('text', { class: 'n', x: C, y: 8, 'text-anchor': 'middle' }); n.textContent = 'B'; svg.append(n);
+  const put = (pt, cls, r) => {
+    if (!pt) return;
+    let x = pt[0] * K, y = pt[1] * K; const d = Math.hypot(x, y);
+    if (d > R - 2) { x *= (R - 2) / d; y *= (R - 2) / d; }
+    svg.append(sv('circle', { class: cls, cx: C + x, cy: C + y, r }));
+  };
+  put(e.rp, 'p', 3.5);
+  (e.viable ? [e.vil] : []).forEach((p) => put(p, 'v', 4));
+  svg.append(sv('circle', { class: 'spawn', cx: C, cy: C, r: 2.5 }));
+  if (e.shp) {
+    const a = Math.atan2(e.shp[1], e.shp[0]);
+    const x = C + Math.cos(a) * (R + 1), y = C + Math.sin(a) * (R + 1);
+    svg.append(sv('polygon', { class: 's', points: '0,-6 5,5 -5,5', transform: `translate(${x} ${y}) rotate(${a * 180 / Math.PI + 90})` }));
+  }
+  return svg;
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {}
+  const t = document.createElement('textarea');
+  t.value = text; t.style.position = 'fixed'; t.style.opacity = '0';
+  document.body.append(t); t.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch {}
+  t.remove();
+  return ok;
+}
+
+function chip(color, label, pt) {
+  if (!pt) return null;
+  const b = el('button', 'chip');
+  b.type = 'button';
+  b.style.setProperty('--c', color);
+  b.title = 'Bấm để copy tọa độ';
+  const s = el('small', '', label);
+  const v = el('span', '', `${pt[0]}, ${pt[1]}`);
+  b.append(s, v);
+  b.onclick = async () => {
+    const ok = await copyText(`${pt[0]} ~ ${pt[1]}`);
+    v.textContent = ok ? 'Đã copy' : 'Copy lỗi';
+    setTimeout(() => { v.textContent = `${pt[0]}, ${pt[1]}`; }, 1200);
+  };
+  return b;
+}
+
+function renderList() {
+  const box = $('list');
+  box.textContent = '';
+  const all = (state.data && state.data.versions[state.version]) || [];
+  const q = $('q').value.trim();
+  const maxsh = parseInt($('maxsh').value, 10);
+  const sort = $('sort').value;
+  const rows = all
+    .filter((e) => (!q || e.seed.includes(q)) && (!maxsh || e.sh <= maxsh))
+    .sort((a, b) => sort === 'sh' ? a.sh - b.sh : sort === 'new' ? b.t - a.t : b.score - a.score || a.sh - b.sh);
+
+  if (!rows.length) {
+    box.append(el('div', 'empty', all.length ? 'Không có seed nào khớp bộ lọc.' : 'Phiên bản này chưa có seed. Bộ dò đang chạy, trang tự cập nhật khi có.'));
+    return;
+  }
+
+  for (const e of rows.slice(0, state.limit)) {
+    const isNew = state.fresh.has(state.version + e.seed);
+    const card = el('article', 'card' + (isNew ? ' new' : ''));
+    card.append(radar(e));
+
+    const main = el('div', 'main');
+    const top = el('div', 'top');
+    top.append(el('div', 'seed', e.seed));
+    if (isNew) top.append(el('span', 'tag', 'Mới'));
+    const sc = el('div', 'score');
+    const b = el('b', '', String(e.score));
+    sc.append(b, ' điểm');
+    const btn = el('button', 'copy', 'Copy seed');
+    btn.type = 'button';
+    btn.onclick = async () => {
+      const ok = await copyText(e.seed);
+      btn.textContent = ok ? 'Đã copy' : 'Copy lỗi';
+      btn.dataset.done = ok ? '1' : '';
+      setTimeout(() => { btn.textContent = 'Copy seed'; btn.dataset.done = ''; }, 1500);
+    };
+    top.append(sc, btn);
+
+    const chips = el('div', 'chips');
+    [
+      chip('var(--village)', e.viable > 1 ? `Làng (+${e.viable - 1} làng nữa)` : 'Làng', e.vil),
+      chip('var(--portal)', 'Ruined portal', e.rp),
+      chip('var(--fort)', 'Fortress (Nether)', e.fort),
+      chip('var(--bast)', 'Bastion (Nether)', e.bast),
+      chip('var(--sh)', `Stronghold (~${e.sh} block)`, e.shp),
+    ].filter(Boolean).forEach((n) => chips.append(n));
+
+    main.append(top, chips);
+    card.append(main);
+    box.append(card);
+  }
+  if (rows.length > state.limit) {
+    const more = el('button', 'more', `Hiện thêm (còn ${rows.length - state.limit} seed)`);
+    more.type = 'button';
+    more.onclick = () => { state.limit += PAGE; renderList(); };
+    box.append(more);
+  }
+}
+
+const rerender = () => { state.limit = PAGE; if (state.data) renderList(); };
+$('q').addEventListener('input', rerender);
+$('sort').addEventListener('change', rerender);
+$('maxsh').addEventListener('change', rerender);
+
+// Tự cập nhật: đếm ngược mỗi giây, hết giờ thì tải lại; tab bị ẩn thì tạm dừng và tải lại ngay khi quay lại
+setInterval(() => {
+  if (document.hidden || state.loading) return;
+  state.left = Math.max(0, state.left - 1);
+  if (state.left === 0) load(); else renderLive();
+}, 1000);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && Date.now() - state.lastLoad > REFRESH * 1000) load();
+});
+load();
+</script>
+</body>
+</html>
