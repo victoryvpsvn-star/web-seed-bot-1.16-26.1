@@ -207,16 +207,16 @@ const PAGE = 60;        // số seed hiện mỗi lần
 
 const $ = (id) => document.getElementById(id);
 const NS = 'http://www.w3.org/2000/svg';
-const state = { data: null, version: null, limit: PAGE, seen: new Set(), fresh: new Set(), updated: 0, lastLoad: 0, left: REFRESH, err: false, loading: false };
+const state = { meta: null, cache: {}, version: null, limit: PAGE, fresh: new Set(), updated: 0, lastLoad: 0, left: REFRESH, err: false, loading: false, vloading: false };
 
-function dataUrl() {
+function baseUrl() {
   let { owner, repo } = OVERRIDE;
   if (!owner) {
     const h = location.hostname;
     if (h.endsWith('.github.io')) { owner = h.split('.')[0]; repo = location.pathname.split('/')[1] || h; }
   }
   if (!owner || !repo) return null;
-  return `https://raw.githubusercontent.com/${owner}/${repo}/${OVERRIDE.branch}/seeds.json`;
+  return `https://raw.githubusercontent.com/${owner}/${repo}/${OVERRIDE.branch}/`;
 }
 
 function cmpVer(a, b) {
@@ -237,33 +237,46 @@ function renderLive() {
   box.className = 'live' + (state.loading ? ' loading' : '') + (state.err ? ' err' : '');
   if (state.loading) { t.textContent = 'Đang cập nhật'; return; }
   if (state.err) { t.textContent = `Không tải được, thử lại sau ${state.left}s`; return; }
-  const total = state.data ? Object.values(state.data.versions || {}).reduce((a, l) => a + l.length, 0) : 0;
+  const total = state.meta ? Object.values(state.meta.versions || {}).reduce((a, v) => a + (v.n || 0), 0) : 0;
   t.innerHTML = '';
   const b = document.createElement('b');
   b.textContent = `${total} seed`;
   t.append(b, ` · dữ liệu ${state.updated ? ago(state.updated) : 'chưa rõ'} · tự cập nhật sau ${state.left}s`);
 }
 
+async function fetchJson(file, v) {
+  const r = await fetch(baseUrl() + file + '?t=' + v, { cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+// Chỉ tải file của phiên bản đang xem, và chỉ tải lại khi bộ dò đã đẩy bản mới (meta.u đổi)
+async function loadVersion(label) {
+  const info = state.meta.versions[label];
+  if (!info) return false;
+  const old = state.cache[label];
+  if (old && old.u === info.u) return false;
+  const j = await fetchJson(info.f, info.u);
+  const seeds = j.seeds || [];
+  state.fresh = new Set();
+  if (old) for (const e of seeds) if (!old.ids.has(e.seed)) state.fresh.add(label + e.seed);
+  state.cache[label] = { u: info.u, seeds, ids: new Set(seeds.map((e) => e.seed)) };
+  return true;
+}
+
 async function load() {
   if (state.loading) return;
-  const url = dataUrl();
-  if (!url) { $('liveText').textContent = 'Chưa biết repo: điền OVERRIDE trong index.html'; return; }
+  if (!baseUrl()) { $('liveText').textContent = 'Chưa biết repo: điền OVERRIDE trong index.html'; return; }
   state.loading = true; renderLive();
   try {
-    const r = await fetch(url + '?t=' + Math.floor(Date.now() / 60000), { cache: 'no-store' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
-    const changed = !state.data || data.updated !== state.updated;
-    // đánh dấu seed mới so với lần tải trước (lần đầu thì không đánh dấu)
-    if (state.data) {
-      state.fresh = new Set();
-      for (const [v, list] of Object.entries(data.versions || {})) for (const e of list) if (!state.seen.has(v + e.seed)) state.fresh.add(v + e.seed);
-    }
-    for (const [v, list] of Object.entries(data.versions || {})) for (const e of list) state.seen.add(v + e.seed);
-    state.data = data; state.updated = data.updated || 0; state.err = false;
-    const labels = Object.keys(data.versions || {}).sort(cmpVer);
-    if (!state.version || !data.versions[state.version]) state.version = labels[labels.length - 1] || null;
-    if (changed) { renderNav(); renderList(); }
+    const meta = await fetchJson('meta.json', Math.floor(Date.now() / 60000));
+    const metaChanged = !state.meta || meta.updated !== state.updated;
+    state.meta = meta; state.updated = meta.updated || 0;
+    const labels = Object.keys(meta.versions || {}).sort(cmpVer);
+    if (!state.version || !meta.versions[state.version]) state.version = labels[labels.length - 1] || null;
+    const vchanged = state.version ? await loadVersion(state.version) : false;
+    state.err = false;
+    if (metaChanged || vchanged) { renderNav(); renderList(); }
   } catch (e) {
     state.err = true;
   } finally {
@@ -274,15 +287,24 @@ async function load() {
 function renderNav() {
   const nav = $('versions');
   nav.textContent = '';
-  for (const l of Object.keys(state.data.versions || {}).sort(cmpVer)) {
+  for (const l of Object.keys(state.meta.versions || {}).sort(cmpVer)) {
     const b = document.createElement('button');
     b.type = 'button';
     b.setAttribute('aria-pressed', String(l === state.version));
     b.append(l);
     const n = document.createElement('i');
-    n.textContent = state.data.versions[l].length;
+    n.textContent = state.meta.versions[l].n;
     b.append(n);
-    b.onclick = () => { state.version = l; state.limit = PAGE; renderNav(); renderList(); };
+    b.onclick = async () => {
+      state.version = l; state.limit = PAGE; state.fresh = new Set(); renderNav();
+      if (!state.cache[l] || state.cache[l].u !== state.meta.versions[l].u) {
+        state.vloading = true; renderList();
+        try { await loadVersion(l); state.err = false; } catch { state.err = true; }
+        state.vloading = false; state.fresh = new Set();
+        if (state.version !== l) return;
+      }
+      renderList();
+    };
     nav.append(b);
   }
 }
@@ -348,7 +370,7 @@ function chip(color, label, pt) {
 function renderList() {
   const box = $('list');
   box.textContent = '';
-  const all = (state.data && state.data.versions[state.version]) || [];
+  const all = (state.cache[state.version] && state.cache[state.version].seeds) || [];
   const q = $('q').value.trim();
   const maxsh = parseInt($('maxsh').value, 10);
   const sort = $('sort').value;
@@ -356,6 +378,7 @@ function renderList() {
     .filter((e) => (!q || e.seed.includes(q)) && (!maxsh || e.sh <= maxsh))
     .sort((a, b) => sort === 'sh' ? a.sh - b.sh : sort === 'new' ? b.t - a.t : b.score - a.score || a.sh - b.sh);
 
+  if (state.vloading) { box.append(el('div', 'empty', 'Đang tải danh sách seed...')); return; }
   if (!rows.length) {
     box.append(el('div', 'empty', all.length ? 'Không có seed nào khớp bộ lọc.' : 'Phiên bản này chưa có seed. Bộ dò đang chạy, trang tự cập nhật khi có.'));
     return;
@@ -404,7 +427,7 @@ function renderList() {
   }
 }
 
-const rerender = () => { state.limit = PAGE; if (state.data) renderList(); };
+const rerender = () => { state.limit = PAGE; if (state.meta) renderList(); };
 $('q').addEventListener('input', rerender);
 $('sort').addEventListener('change', rerender);
 $('maxsh').addEventListener('change', rerender);
